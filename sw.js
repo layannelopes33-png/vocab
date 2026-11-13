@@ -1,6 +1,6 @@
 // Service worker: guarda os arquivos do app para funcionar offline.
 // IMPORTANTE: sempre que publicar uma alteração, aumente o número da versão abaixo.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const FONTS = 'vocab-fonts'; // fontes do Google guardadas para uso offline
 const CACHE = `vocab-${VERSION}`;
 const FILES = [
