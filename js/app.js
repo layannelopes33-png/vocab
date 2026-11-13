@@ -3,6 +3,7 @@
  */
 import { storage } from './storage.js';
 import * as srs from './srs.js';
+import { mascot } from './mascot.js';
 
 const LANGS = {
   en: { code: 'EN', label: 'Inglês', tts: 'en-US' },
@@ -137,6 +138,7 @@ function route() {
   const [, name = '', arg] = location.hash.replace(/^#/, '').split('/');
   const fn = routes[name] || viewHome;
   const tab = name === 'edit' ? 'items' : name || 'home';
+  document.body.classList.toggle('focus', name === 'review'); // revisão sem barra inferior
   document.querySelectorAll('.tabbar a').forEach((a) => a.classList.toggle('active', a.dataset.tab === tab));
   window.scrollTo(0, 0);
   fn(arg ? decodeURIComponent(arg) : undefined).catch((err) => {
@@ -156,48 +158,61 @@ async function viewHome() {
   if (!items.length) {
     view.innerHTML = `
       <section class="panel empty">
-        <h2>Comece adicionando itens</h2>
-        <p class="muted">Blocos de palavras funcionam melhor que palavras soltas.</p>
+        ${mascot('neutral', 120)}
+        <h2>Vamos plantar o primeiro item?</h2>
+        <p class="muted">Blocos de palavras crescem melhor que palavras soltas.</p>
         <a class="btn primary" href="#/add">Adicionar itens</a>
       </section>`;
     return;
   }
 
-  const rows = LANG_KEYS.map((l) => {
-    const s = srs.collect(items, [l], settings.newPerDay, t);
-    return { l, ...s, total: items.filter((i) => i.lang === l).length };
-  });
+  const rows = LANG_KEYS.map((l) => ({ l, ...srs.collect(items, [l], settings.newPerDay, t) }));
   const all = rows.reduce((n, r) => n + r.reviews + r.newItems, 0);
+  const h = new Date().getHours();
+  const hello = h < 12 ? 'Bom dia!' : h < 18 ? 'Boa tarde!' : 'Boa noite!';
 
   view.innerHTML = `
-    <section class="panel stat">
-      <div class="big">${spont}</div>
-      <div>itens <strong>usados espontaneamente</strong><br><span class="muted">nos últimos 28 dias</span></div>
+    <section class="hero">
+      <div class="hero-text">
+        <h1>${hello}</h1>
+        <p>${all ? `${all} ${all === 1 ? 'cartão te espera' : 'cartões te esperam'} hoje.` : 'Tudo em dia. Pode descansar!'}</p>
+      </div>
+      ${mascot(all ? 'happy' : 'sleep', 104)}
+      <svg class="hills" viewBox="0 0 400 70" preserveAspectRatio="none" aria-hidden="true">
+        <ellipse class="cloud" cx="60" cy="14" rx="28" ry="8"/>
+        <ellipse class="cloud" cx="200" cy="8" rx="20" ry="6"/>
+        <path class="h1" d="M0 44 C70 14 140 22 210 40 C270 56 330 22 400 30 L400 70 L0 70Z"/>
+        <path class="h2" d="M0 58 C90 38 170 46 250 58 C310 66 360 50 400 52 L400 70 L0 70Z"/>
+      </svg>
     </section>
 
-    <section class="panel">
-      <h2>Para hoje</h2>
-      <ul class="langs">
-        ${rows
-          .map(
-            (r) => `
-          <li>
-            <div class="lang-name">${langPill(r.l)} ${LANGS[r.l].label}</div>
-            <div class="counts">
-              <span><strong>${r.reviews}</strong> revisões</span>
-              <span><strong>${r.newItems}</strong> novos</span>
-            </div>
-            ${
-              r.reviews + r.newItems
-                ? `<a class="btn small" href="#/review/${r.l}">Estudar</a>`
-                : `<span class="done-mark" title="Nada pendente">✓</span>`
-            }
-          </li>`
-          )
-          .join('')}
-      </ul>
-      ${all ? `<a class="btn primary block" href="#/review">Estudar tudo (${all})</a>` : `<p class="muted center">Nada pendente hoje. 🎉</p>`}
-    </section>`;
+    <section class="panel stat">
+      <div class="stat-icon">★</div>
+      <div class="big">${spont}</div>
+      <div class="label">${spont === 1 ? 'item usado' : 'itens usados'} espontaneamente<br><span class="muted small">nos últimos 28 dias</span></div>
+    </section>
+
+    <h2 class="section-title">Seus idiomas</h2>
+    <div class="lang-cards">
+      ${rows
+        .map(
+          (r) => `
+        <div class="lang-card">
+          <div class="lang-badge lang-${r.l}">${LANGS[r.l].code}</div>
+          <div class="lang-info">
+            <strong>${LANGS[r.l].label}</strong>
+            <div class="counts"><span><b>${r.reviews}</b> revisões</span><span><b>${r.newItems}</b> novos</span></div>
+          </div>
+          ${
+            r.reviews + r.newItems
+              ? `<a class="btn small primary" href="#/review/${r.l}">Estudar</a>`
+              : `<span class="done-mark" title="Nada pendente">✓</span>`
+          }
+        </div>`
+        )
+        .join('')}
+    </div>
+    ${all ? `<a class="btn accent block big" href="#/review">Estudar tudo (${all})</a>` : ''}`;
 }
 
 /* ---------------- Revisão ---------------- */
@@ -261,8 +276,8 @@ function showCard() {
         <p id="no-voice" class="warn" hidden>Não encontrei voz em russo neste aparelho. No Android: Configurações → Idioma → Saída de conversão de texto em voz → instale o russo.</p>
       </div>
       <dl class="details">
-        ${item.definition ? `<dt>Significado</dt><dd>${esc(item.definition)}</dd>` : ''}
-        ${item.originalSentence ? `<dt>Frase original</dt><dd>${esc(item.originalSentence)}</dd>` : ''}
+        ${item.definition ? `<div><dt>Significado</dt><dd>${esc(item.definition)}</dd></div>` : ''}
+        ${item.originalSentence ? `<div><dt>Frase original</dt><dd>${esc(item.originalSentence)}</dd></div>` : ''}
       </dl>`
     : `
       <div class="answer">
@@ -270,11 +285,11 @@ function showCard() {
         <button class="btn small ghost" id="speak">🔊 Ouvir</button>
       </div>
       <dl class="details">
-        ${item.definition ? `<dt>Definição</dt><dd>${esc(item.definition)}</dd>` : ''}
-        ${item.mySentence ? `<dt>Minha frase</dt><dd>${esc(item.mySentence)}</dd>` : ''}
-        ${item.originalSentence ? `<dt>Frase original</dt><dd>${esc(item.originalSentence)}</dd>` : ''}
-        ${item.nuance ? `<dt>Vizinhas / nuance</dt><dd>${esc(item.nuance)}</dd>` : ''}
-        ${item.source ? `<dt>Fonte</dt><dd>${esc(item.source)}</dd>` : ''}
+        ${item.definition ? `<div><dt>Definição</dt><dd>${esc(item.definition)}</dd></div>` : ''}
+        ${item.mySentence ? `<div><dt>Minha frase</dt><dd>${esc(item.mySentence)}</dd></div>` : ''}
+        ${item.originalSentence ? `<div><dt>Frase original</dt><dd>${esc(item.originalSentence)}</dd></div>` : ''}
+        ${item.nuance ? `<div><dt>Vizinhas / nuance</dt><dd>${esc(item.nuance)}</dd></div>` : ''}
+        ${item.source ? `<div><dt>Fonte</dt><dd>${esc(item.source)}</dd></div>` : ''}
       </dl>`;
 
   const grades = srs.GRADES.map((g, n) => {
@@ -284,7 +299,11 @@ function showCard() {
   }).join('');
 
   view.innerHTML = `
-    <div class="progress"><span>${s.done} feitos</span><span>${s.queue.length} na fila</span></div>
+    <div class="progress">
+      <a class="close" href="#/" aria-label="Sair da revisão">✕</a>
+      <div class="bar"><span style="width:${Math.round((100 * s.done) / (s.done + s.queue.length))}%"></span></div>
+      <small>${s.done}/${s.done + s.queue.length}</small>
+    </div>
     <article class="flashcard">
       <div class="card-meta">
         ${langPill(item.lang)}
@@ -371,8 +390,9 @@ function renderDone() {
   document.onkeydown = null;
   view.innerHTML = `
     <section class="panel empty">
-      <h2>Sessão concluída</h2>
-      <p class="muted">${session.done} cartões revisados.</p>
+      ${session.done ? mascot('cheer', 140) : mascot('sleep', 120)}
+      <h2>${session.done ? 'Sessão concluída!' : 'Nada para estudar agora'}</h2>
+      <p class="muted">${session.done ? `${session.done} ${session.done === 1 ? 'cartão revisado' : 'cartões revisados'}. Seu jardim agradece.` : 'Volte mais tarde ou adicione itens novos.'}</p>
       <a class="btn primary" href="#/">Voltar ao início</a>
     </section>`;
 }
@@ -527,7 +547,7 @@ async function viewItems() {
         </a></li>`
           )
           .join('')
-      : `<li class="muted center pad">Nenhum item.</li>`;
+      : `<li class="panel empty">${mascot('think', 96)}<p class="muted">Nenhum item encontrado.</p></li>`;
   };
   draw();
   $('#q').oninput = (e) => {
